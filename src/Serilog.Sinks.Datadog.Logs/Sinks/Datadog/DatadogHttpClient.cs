@@ -92,30 +92,24 @@ namespace Serilog.Sinks.Datadog.Logs
             return prefix + String.Join(delimiter, collection) + suffix;
         }
 
+        private int _retry;
         private async Task Post(string payload)
         {
-            var content = new StringContent(payload, Encoding.UTF8, _content);
-            for (int retry = 0; retry < MaxRetries; retry++)
-            {
-                int backoff = (int)Math.Min(Math.Pow(2, retry), MaxBackoff);
-                if (retry > 0)
-                {
-                    await Task.Delay(backoff * 1000);
-                }
-
-                try
-                {
-                    var result = await _client.PostAsync(_url, content);
-                    if (result == null) { continue; }
-                    if ((int)result.StatusCode >= 500) { continue; }
-                    if ((int)result.StatusCode >= 400) { break; }
-                    if (result.IsSuccessStatusCode) { return; }
-                }
-                catch (Exception)
-                {
-                    continue;
-                }
+            if (_retry > 0) {
+                var backoff = (int)Math.Min(Math.Pow(2, _retry), MaxBackoff);
+                await Task.Delay(backoff * 1000);
             }
+
+            _retry++;
+
+            var content = new StringContent(payload, Encoding.UTF8, _content);
+            var result = await _client.PostAsync(_url, content);
+
+            if (result.IsSuccessStatusCode) {
+                _retry = 0;
+                return;
+            }
+
             SelfLog.WriteLine("Could not send payload to Datadog: {0}", payload);
         }
 
