@@ -68,19 +68,19 @@ namespace Serilog.Sinks.Datadog.Logs
                 if (currentSize + logSize > _maxSize)
                 {
                     // Flush the chunkBuffer to the chunks and reset the chunkBuffer
-                    chunks.Add(GenerateChunk(chunkBuffer, ",", "[", "]"));
+                    chunks.Add(GenerateChunk(chunkBuffer));
                     chunkBuffer.Clear();
                     currentSize = 0;
                 }
                 chunkBuffer.Add(formattedLog);
                 currentSize += logSize;
             }
-            chunks.Add(GenerateChunk(chunkBuffer, ",", "[", "]"));
+            chunks.Add(GenerateChunk(chunkBuffer));
 
             return chunks;
         }
 
-        private static string GenerateChunk(IEnumerable<string> collection, string delimiter, string prefix, string suffix) => prefix + Join(delimiter, collection) + suffix;
+        private static string GenerateChunk(IEnumerable<string> collection) => $"[{Join(",", collection)}]";
 
         private int _retry;
         private async Task Post(string payload)
