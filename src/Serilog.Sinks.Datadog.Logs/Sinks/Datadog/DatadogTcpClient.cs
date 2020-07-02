@@ -65,10 +65,10 @@ namespace Serilog.Sinks.Datadog.Logs
         {
             _client = new TcpClient();
             await _client.ConnectAsync(_config.Url, _config.Port);
-            Stream rawStream = _client.GetStream();
+            var rawStream = _client.GetStream();
             if (_config.UseSSL)
             {
-                SslStream secureStream = new SslStream(rawStream);
+                var secureStream = new SslStream(rawStream);
                 await secureStream.AuthenticateAsClientAsync(_config.Url);
                 _stream = secureStream;
             }
@@ -104,7 +104,7 @@ namespace Serilog.Sinks.Datadog.Logs
             }
 
             try {
-                byte[] data = UTF8.GetBytes(payload);
+                var data = UTF8.GetBytes(payload);
                 _stream.Write(data, 0, data.Length);
                 _retry = 0;
             }
