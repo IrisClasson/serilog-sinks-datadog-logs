@@ -78,6 +78,8 @@ namespace Serilog.Sinks.Datadog.Logs
             }
         }
 
+        private int _retry;
+
         public async Task WriteAsync(IEnumerable<LogEvent> events)
         {
             var payloadBuilder = new StringBuilder();
@@ -87,42 +89,31 @@ namespace Serilog.Sinks.Datadog.Logs
                 payloadBuilder.Append(_formatter.formatMessage(logEvent));
                 payloadBuilder.Append(MessageDelimiter);
             }
-            string payload = payloadBuilder.ToString();
+            var payload = payloadBuilder.ToString();
 
-            for (int retry = 0; retry < MaxRetries; retry++)
-            {
-                int backoff = (int)Math.Min(Math.Pow(retry, 2), MaxBackoff);
-                if (retry > 0)
-                {
-                    await Task.Delay(backoff * 1000);
-                }
-
-                if (IsConnectionClosed())
-                {
-                    try
-                    {
-                        await ConnectAsync();
-                    }
-                    catch (Exception e)
-                    {
-                        SelfLog.WriteLine("Could not connect to Datadog: {0}", e);
-                        continue;
-                    }
-                }
-
-                try
-                {
-                    byte[] data = UTF8.GetBytes(payload);
-                    _stream.Write(data, 0, data.Length);
-                    return;
-                }
-                catch (Exception e)
-                {
-                    CloseConnection();
-                    SelfLog.WriteLine("Could not send data to Datadog: {0}", e);
-                }
+            if (_retry > 0) {
+                var backoff = (int)Math.Min(Math.Pow(2, _retry), MaxBackoff);
+                await Task.Delay(backoff * 1000);
             }
-            SelfLog.WriteLine("Could not send payload to Datadog: {0}", payload);
+
+            _retry++;
+
+            if (IsConnectionClosed())
+            {
+                await ConnectAsync();
+            }
+
+            try {
+                byte[] data = UTF8.GetBytes(payload);
+                _stream.Write(data, 0, data.Length);
+                _retry = 0;
+            }
+            catch (Exception) {
+                CloseConnection();
+                throw;
+            }
+
+            SelfLog.WriteLine("Could not send payload to Datadog after {_retry} retries. Payload: {0}", payload);
         }
 
         private void CloseConnection()
