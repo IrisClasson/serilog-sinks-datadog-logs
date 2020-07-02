@@ -11,6 +11,7 @@ using System.Net.Http;
 using Serilog.Events;
 using System.Collections.Generic;
 using System.Linq;
+using static System.String;
 
 namespace Serilog.Sinks.Datadog.Logs
 {
@@ -20,7 +21,6 @@ namespace Serilog.Sinks.Datadog.Logs
         private const int _maxSize = 2 * 1024 * 1024 - 51;  // Need to reserve space for at most 49 "," and "[" + "]"
         private const int _maxMessageSize = 256 * 1024;
 
-        private readonly DatadogConfiguration _config;
         private readonly string _url;
         private readonly LogFormatter _formatter;
         private readonly HttpClient _client;
@@ -35,14 +35,8 @@ namespace Serilog.Sinks.Datadog.Logs
         /// </summary>
         private const int MaxBackoff = 30;
 
-        /// <summary>
-        /// Shared UTF8 encoder.
-        /// </summary>
-        private static readonly UTF8Encoding UTF8 = new UTF8Encoding();
-
         public DatadogHttpClient(DatadogConfiguration config, LogFormatter formatter, string apiKey)
         {
-            _config = config;
             _client = new HttpClient();
             _url = $"{config.Url}/v1/input/{apiKey}";
             _formatter = formatter;
@@ -56,11 +50,11 @@ namespace Serilog.Sinks.Datadog.Logs
             await Task.WhenAll(tasks).ConfigureAwait(false);
         }
 
-        private List<String> SerializeEvents(IEnumerable<LogEvent> events)
+        private List<string> SerializeEvents(IEnumerable<LogEvent> events)
         {
-            List<string> chunks = new List<string>();
+            var chunks = new List<string>();
 
-            int currentSize = 0;
+            var currentSize = 0;
 
             var chunkBuffer = new List<string>(events.Count());
             foreach (var logEvent in events)
@@ -84,13 +78,9 @@ namespace Serilog.Sinks.Datadog.Logs
             chunks.Add(GenerateChunk(chunkBuffer, ",", "[", "]"));
 
             return chunks;
-
         }
 
-        private static string GenerateChunk(IEnumerable<string> collection, string delimiter, string prefix, string suffix)
-        {
-            return prefix + String.Join(delimiter, collection) + suffix;
-        }
+        private static string GenerateChunk(IEnumerable<string> collection, string delimiter, string prefix, string suffix) => prefix + Join(delimiter, collection) + suffix;
 
         private int _retry;
         private async Task Post(string payload)
@@ -110,7 +100,7 @@ namespace Serilog.Sinks.Datadog.Logs
                 return;
             }
 
-            SelfLog.WriteLine("Could not send payload to Datadog: {0}", payload);
+            SelfLog.WriteLine("Could not send payload to Datadog: {0},payload");
         }
 
         void IDatadogClient.Close() {}
